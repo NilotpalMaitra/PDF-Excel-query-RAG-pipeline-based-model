@@ -17,21 +17,19 @@ import chardet
 load_dotenv('D:\\RAG query searcher\\apikey.env')
 
 # API key configuration
-key = os.getenv('GOOGLE_API_KEY')  # Ensure this is set in .env
+key = os.getenv('GOOGLE_API_KEY')
 if key:
     genai.configure(api_key=key)
 else:
     raise ValueError("Google Gemini API key is missing. Please set GOOGLE_API_KEY in your .env file.")
 
 def detect_encoding(file):
-    """Detect file encoding using chardet."""
     raw_data = file.read()
-    file.seek(0)  # Reset file pointer after reading
+    file.seek(0)
     result = chardet.detect(raw_data)
     return result['encoding']
 
 def pdf_read(pdfs):
-    """Read and extract text from PDF files."""
     text = ""
     for pdf in pdfs:
         try:
@@ -44,13 +42,12 @@ def pdf_read(pdfs):
                         st.warning(f"No text extracted from page {page.page_number}")
         except Exception as e:
             st.error(f"Error reading PDF file {pdf.name}: {str(e)}")
-    st.write(text[:1000])  # Display the first 1000 characters of extracted text for debugging
+    st.write("### Extracted Text Preview:")
+    st.write(text[:1000])
     return text
 
 def read_csv(file):
-    """Read and process CSV files with encoding fallback."""
     try:
-        # Detect encoding
         encoding = detect_encoding(file)
         df = pd.read_csv(file, encoding=encoding)
         return df.to_string()
@@ -67,14 +64,13 @@ def read_csv(file):
         return ""
 
 def chunk_split(text):
-    """Split text into manageable chunks."""
-    splitter = RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=1000)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=1000)
     chunks = splitter.split_text(text)
-    st.write(chunks[:5])  # Print first few chunks for debugging
+    st.write("### Chunks Preview:")
+    st.write(chunks[:5])
     return chunks
 
 def generate_embeddings(chunks):
-    """Generate embeddings from text chunks."""
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model='models/embedding-001')
         store = FAISS.from_texts(chunks, embedding=embeddings)
@@ -84,9 +80,8 @@ def generate_embeddings(chunks):
         st.error(f"Error generating embeddings: {str(e)}")
 
 def get_chain():
-    """Set up the question-answering chain."""
     prompt_template = '''
-    Provide a detailed reply to the given question based on the given context. Your answer will only be based on the provided context and nothing else. If the answer to the question is not present in the context your reply should be 'Answer not in the provided context',\n\n
+    Based on the provided context, answer the following question. If the answer is not explicitly stated but can be inferred, make a logical deduction. If no relevant information is present, reply 'Answer not in the provided context'.\n\n
     Context : {context}\n\n
     Question: {question}
     '''
@@ -95,13 +90,14 @@ def get_chain():
     return load_qa_chain(model, chain_type='stuff', prompt=prompt)
 
 def user_input(query):
-    """Process user query and return a response."""
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model='models/embedding-001')
         data = FAISS.load_local("faiss.index", embeddings, allow_dangerous_deserialization=True)
         st.write(f"Performing similarity search for query: {query}")
         f_data = data.similarity_search(query)
-        st.write(f"Relevant documents found: {f_data}")  # Display search results for debugging
+        st.write("### Relevant Documents Found:")
+        for doc in f_data:
+            st.write(doc.page_content[:500])
         chain = get_chain()
         response = chain({'input_documents': f_data, 'question': query}, return_only_outputs=True)
         st.write("### Response:")
@@ -110,7 +106,6 @@ def user_input(query):
         st.error(f"Error processing query: {str(e)}")
 
 def process_file(files):
-    """Process uploaded files (PDF or CSV)."""
     for file in files:
         if file.name.endswith('.pdf'):
             text = pdf_read([file])
@@ -125,7 +120,6 @@ def process_file(files):
             generate_embeddings(chunks)
 
 def main():
-    """Main function for the Streamlit app."""
     st.set_page_config(page_title='PDF Reader', layout='wide')
     st.header('Generate Answers from PDFs Using Gemini')
 
