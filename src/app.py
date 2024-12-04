@@ -14,7 +14,7 @@ from PyPDF2.errors import PdfReadError
 import chardet
 
 # Load environment variables
-load_dotenv('D:\\RAG query searcher\\apikey.env')
+load_dotenv()
 
 # API key configuration
 key = os.getenv('GOOGLE_API_KEY')
